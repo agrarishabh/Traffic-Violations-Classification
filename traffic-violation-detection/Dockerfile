@@ -56,8 +56,8 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 8501
 
 # ── Health check ─────────────────────────────────────────────
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
-    CMD curl -f http://localhost:${PORT:-8501}/_stcore/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
 # ── Entrypoint ────────────────────────────────────────────────
 # Use $PORT from Railway/Render env, fallback to 8501 for local
