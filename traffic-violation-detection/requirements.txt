@@ -4,7 +4,9 @@
 # ============================================================
 
 # --- Core Computer Vision ---
-ultralytics==8.3.0          # YOLOv8 object detection (auto-installs torch)
+ultralytics==8.3.0          # YOLOv8 object detection
+# torch + torchvision are installed CPU-only in Dockerfile before this file
+# to keep image size ~500 MB instead of ~2.9 GB (no CUDA needed on Railway)
 opencv-python-headless==4.10.0.84    # Headless — no GUI/display libs needed on server
 Pillow==10.4.0              # Image I/O
 

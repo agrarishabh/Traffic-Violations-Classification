@@ -27,6 +27,9 @@ WORKDIR /app
 # ── Install Python dependencies first (cached layer) ─────────
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
+        torch==2.4.1 torchvision==0.19.1 \
+        --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
 # ── Copy project source ───────────────────────────────────────
