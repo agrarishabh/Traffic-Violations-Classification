@@ -1,0 +1,74 @@
+# ── Virtual environment ───────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Python cache ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# ── ML model weights (large files — download at runtime) ──────
+data/models/*.pt
+data/models/*.pth
+data/models/*.onnx
+data/models/*.engine
+data/models/yolov8n.pt
+data/models/yolov8s.pt
+data/models/helmet_yolov8.pt
+data/models/seatbelt_yolov8.pt
+data/models/license_plate_yolov8.pt
+data/models/traffic_light_yolov8.pt
+data/models/triple_riding_yolov8.pt
+
+# ── EasyOCR model cache ───────────────────────────────────────
+~/.EasyOCR/
+*.EasyOCR/
+
+# ── Database (auto-created at runtime) ───────────────────────
+violations.db
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Evidence output (generated at runtime) ───────────────────
+evidence/
+samples/preprocessed/
+samples/detected/
+samples/violations/
+samples/ocr/
+samples/evidence_demo/
+samples/evaluation/
+demo_summary.json
+
+# ── Datasets (large — download via Roboflow/Kaggle) ──────────
+data/datasets/
+
+# ── OS files ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Secrets and env ───────────────────────────────────────────
+.env
+.env.*
+secrets.toml
+*.key
+
+# ── Ultralytics cache ─────────────────────────────────────────
+runs/
+ultralytics/
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/

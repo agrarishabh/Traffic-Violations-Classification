@@ -1,0 +1,323 @@
+"""
+core/database.py
+================
+SQLite Database Setup and CRUD Operations.
+
+Tables:
+  violations   — stores every detected violation record
+  images       — stores processed image metadata
+  reports      — stores generated report summaries
+
+Uses SQLAlchemy ORM so we write Python classes, not raw SQL.
+The database file is: violations.db (in the project root)
+
+HOW IT WORKS:
+  1. Call init_db() once at startup to create tables
+  2. Use save_violation() to insert new records
+  3. Use get_violations() to query records
+"""
+
+import sys
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional, Dict, Any
+
+# ── SQLAlchemy imports ─────────────────────────────────────────
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Float,
+    DateTime, Text, Boolean, ForeignKey, JSON
+)
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy import inspect as sa_inspect
+
+# Add project root to path for config import
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from config import DATABASE_URL
+
+# ── ORM Base ───────────────────────────────────────────────────
+Base = declarative_base()
+
+# ── Database Engine (created once, reused) ────────────────────
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False},  # Needed for SQLite + FastAPI
+    echo=False   # Set to True to see SQL statements in console (for debugging)
+)
+
+# Session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+# ══════════════════════════════════════════════════════════════
+# TABLE DEFINITIONS (ORM Models)
+# ══════════════════════════════════════════════════════════════
+
+class ProcessedImage(Base):
+    """
+    Stores metadata for each image that was analyzed.
+    One row = one image.
+    """
+    __tablename__ = "processed_images"
+
+    id              = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    evidence_id     = Column(String(64), unique=True, index=True, nullable=False)
+    filename        = Column(String(255), nullable=False)
+    source_path     = Column(Text, nullable=True)
+    annotated_path  = Column(Text, nullable=True)
+    metadata_path   = Column(Text, nullable=True)
+    processed_at    = Column(DateTime, default=datetime.utcnow, nullable=False)
+    has_violations  = Column(Boolean, default=False, nullable=False)
+    violation_count = Column(Integer, default=0, nullable=False)
+    inference_ms    = Column(Float, default=0.0, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id":               self.id,
+            "evidence_id":      self.evidence_id,
+            "filename":         self.filename,
+            "source_path":      self.source_path,
+            "annotated_path":   self.annotated_path,
+            "processed_at":     self.processed_at.isoformat() if self.processed_at else None,
+            "has_violations":   self.has_violations,
+            "violation_count":  self.violation_count,
+            "inference_ms":     self.inference_ms,
+        }
+
+
+class ViolationRecord(Base):
+    """
+    Stores each individual violation detected.
+    One row = one violation instance.
+    Multiple rows can link to the same evidence_id (image).
+    """
+    __tablename__ = "violations"
+
+    id               = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    evidence_id      = Column(String(64), index=True, nullable=False)
+    violation_type   = Column(String(64), index=True, nullable=False)
+    display_name     = Column(String(128), nullable=False)
+    confidence       = Column(Float, nullable=False)
+    bbox             = Column(Text, nullable=True)     # JSON string: [x1,y1,x2,y2]
+    plate_number     = Column(String(32), index=True, nullable=True)
+    fine_amount      = Column(Integer, default=0, nullable=False)
+    description      = Column(Text, nullable=True)
+    detected_at      = Column(DateTime, default=datetime.utcnow, nullable=False)
+    image_filename   = Column(String(255), nullable=True)
+    annotated_path   = Column(Text, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id":             self.id,
+            "evidence_id":    self.evidence_id,
+            "violation_type": self.violation_type,
+            "display_name":   self.display_name,
+            "confidence":     self.confidence,
+            "bbox":           json.loads(self.bbox) if self.bbox else None,
+            "plate_number":   self.plate_number,
+            "fine_amount":    self.fine_amount,
+            "description":    self.description,
+            "detected_at":    self.detected_at.isoformat() if self.detected_at else None,
+            "image_filename": self.image_filename,
+            "annotated_path": self.annotated_path,
+        }
+
+
+class ReportRecord(Base):
+    """Stores summary reports generated by the analytics module."""
+    __tablename__ = "reports"
+
+    id           = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    report_id    = Column(String(64), unique=True, index=True)
+    report_type  = Column(String(32), nullable=False)   # 'daily', 'weekly', 'custom'
+    date_from    = Column(DateTime, nullable=True)
+    date_to      = Column(DateTime, nullable=True)
+    total_images = Column(Integer, default=0)
+    total_violations = Column(Integer, default=0)
+    total_fines  = Column(Integer, default=0)
+    summary_json = Column(Text, nullable=True)           # Full JSON stats
+    created_at   = Column(DateTime, default=datetime.utcnow)
+    export_path  = Column(Text, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "report_id":        self.report_id,
+            "report_type":      self.report_type,
+            "date_from":        self.date_from.isoformat() if self.date_from else None,
+            "date_to":          self.date_to.isoformat() if self.date_to else None,
+            "total_images":     self.total_images,
+            "total_violations": self.total_violations,
+            "total_fines":      self.total_fines,
+            "created_at":       self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ══════════════════════════════════════════════════════════════
+# DATABASE INITIALIZATION
+# ══════════════════════════════════════════════════════════════
+
+def init_db() -> None:
+    """
+    Create all database tables if they don't exist.
+    Call this ONCE when the application starts.
+    Safe to call multiple times — won't drop existing data.
+    """
+    Base.metadata.create_all(bind=engine)
+    print(f"  DB  Database initialized: {DATABASE_URL}")
+
+
+def get_db() -> Session:
+    """
+    Get a database session. Use as a context manager:
+
+        with get_db() as db:
+            db.add(record)
+            db.commit()
+
+    Or as a FastAPI dependency:
+        def route(db: Session = Depends(get_db)): ...
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# ══════════════════════════════════════════════════════════════
+# CRUD OPERATIONS
+# ══════════════════════════════════════════════════════════════
+
+def save_processed_image(db: Session, image_data: dict) -> ProcessedImage:
+    """Insert a new processed image record."""
+    record = ProcessedImage(**image_data)
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def save_violation(db: Session, violation_data: dict) -> ViolationRecord:
+    """Insert a new violation record."""
+    # Convert bbox list to JSON string for storage
+    if "bbox" in violation_data and isinstance(violation_data["bbox"], list):
+        violation_data = dict(violation_data)
+        violation_data["bbox"] = json.dumps(violation_data["bbox"])
+    record = ViolationRecord(**violation_data)
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def get_violations(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    violation_type: Optional[str] = None,
+    plate_number: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+) -> List[ViolationRecord]:
+    """
+    Query violations with optional filters.
+
+    Args:
+        skip           : Number of records to skip (for pagination)
+        limit          : Maximum records to return
+        violation_type : Filter by type (e.g. 'helmet_non_compliance')
+        plate_number   : Filter by plate (partial match)
+        date_from      : Filter records after this datetime
+        date_to        : Filter records before this datetime
+    """
+    query = db.query(ViolationRecord)
+    if violation_type:
+        query = query.filter(ViolationRecord.violation_type == violation_type)
+    if plate_number:
+        query = query.filter(ViolationRecord.plate_number.contains(plate_number.upper()))
+    if date_from:
+        query = query.filter(ViolationRecord.detected_at >= date_from)
+    if date_to:
+        query = query.filter(ViolationRecord.detected_at <= date_to)
+    return query.order_by(ViolationRecord.detected_at.desc()).offset(skip).limit(limit).all()
+
+
+def get_violation_by_id(db: Session, violation_id: int) -> Optional[ViolationRecord]:
+    """Get a single violation by its database ID."""
+    return db.query(ViolationRecord).filter(ViolationRecord.id == violation_id).first()
+
+
+def get_stats(db: Session) -> Dict[str, Any]:
+    """
+    Get aggregate statistics for the dashboard.
+    Returns counts per violation type, total images, total fines.
+    """
+    from sqlalchemy import func
+
+    total_images     = db.query(ProcessedImage).count()
+    total_violations = db.query(ViolationRecord).count()
+    total_fines      = db.query(func.sum(ViolationRecord.fine_amount)).scalar() or 0
+
+    # Count per violation type
+    type_counts = (
+        db.query(ViolationRecord.violation_type, func.count(ViolationRecord.id))
+        .group_by(ViolationRecord.violation_type)
+        .all()
+    )
+
+    return {
+        "total_images":     total_images,
+        "total_violations": total_violations,
+        "total_fines":      int(total_fines),
+        "by_type":          {t: c for t, c in type_counts},
+    }
+
+
+def delete_all_violations(db: Session) -> int:
+    """Delete all violation records. Returns count deleted. Use with caution."""
+    count = db.query(ViolationRecord).count()
+    db.query(ViolationRecord).delete()
+    db.commit()
+    return count
+
+
+# ══════════════════════════════════════════════════════════════
+# STANDALONE TEST  (run: python core/database.py)
+# ══════════════════════════════════════════════════════════════
+if __name__ == "__main__":
+    print("Testing database setup...")
+    init_db()
+
+    db = SessionLocal()
+
+    # Insert a test violation
+    test_violation = {
+        "evidence_id":    "test-001",
+        "violation_type": "helmet_non_compliance",
+        "display_name":   "Helmet Non-Compliance",
+        "confidence":     0.87,
+        "bbox":           [100, 150, 300, 400],
+        "plate_number":   "MH12AB1234",
+        "fine_amount":    1000,
+        "description":    "Rider on two-wheeler without helmet",
+        "image_filename": "test_image.jpg",
+    }
+    record = save_violation(db, test_violation)
+    print(f"  OK  Inserted violation: ID={record.id}")
+
+    # Query it back
+    violations = get_violations(db, limit=10)
+    print(f"  OK  Query returned {len(violations)} record(s)")
+
+    # Stats
+    stats = get_stats(db)
+    print(f"  OK  Stats: {stats}")
+
+    # Cleanup test data
+    delete_all_violations(db)
+    print(f"  OK  Test data cleaned up")
+
+    db.close()
+    print("\n  Database test PASSED!")

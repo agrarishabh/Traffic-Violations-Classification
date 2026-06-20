@@ -1,0 +1,126 @@
+"""
+startup.py
+==========
+First-run initialisation script.
+
+Called automatically by the Streamlit app on startup.
+Safe to call multiple times — all operations are idempotent.
+
+What it does:
+  1. Creates required directories
+  2. Downloads YOLOv8 base model if missing
+  3. Warms up EasyOCR (triggers model download once)
+  4. Initialises the SQLite database
+  5. Prints a status summary
+"""
+
+import os
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+
+def ensure_dirs() -> None:
+    """Create all required runtime directories."""
+    from config import MODELS_DIR, EVIDENCE_DIR, SAMPLES_DIR, TEST_DIR
+    for d in [MODELS_DIR, EVIDENCE_DIR, SAMPLES_DIR, TEST_DIR,
+              PROJECT_ROOT / "data" / "datasets"]:
+        d.mkdir(parents=True, exist_ok=True)
+    print("  [OK] Directories ready")
+
+
+def download_yolo() -> bool:
+    """
+    Download YOLOv8s base weights if not already cached.
+    Ultralytics stores the cache in ~/.ultralytics/ automatically.
+    """
+    try:
+        from ultralytics import YOLO
+        print("  [..] Checking YOLOv8s weights ...")
+        model = YOLO("yolov8s.pt")   # downloads if missing (~22 MB)
+        print(f"  [OK] YOLOv8s ready  ({len(model.names)} COCO classes)")
+        return True
+    except Exception as e:
+        print(f"  [!!] YOLOv8 download failed: {e}")
+        print("       Falling back to yolov8n.pt ...")
+        try:
+            from ultralytics import YOLO as YOLO2
+            YOLO2("yolov8n.pt")
+            print("  [OK] YOLOv8n ready (fallback)")
+            return True
+        except Exception as e2:
+            print(f"  [!!] Both YOLOv8 downloads failed: {e2}")
+            return False
+
+
+def warm_easyocr() -> bool:
+    """
+    Trigger EasyOCR model download on first run.
+    Models are cached in ~/.EasyOCR/ (~100 MB total).
+    """
+    try:
+        print("  [..] Checking EasyOCR models (~100 MB first run) ...")
+        import easyocr
+        reader = easyocr.Reader(['en'], gpu=False, verbose=False)
+        del reader
+        print("  [OK] EasyOCR ready")
+        return True
+    except Exception as e:
+        print(f"  [!!] EasyOCR init failed: {e}")
+        return False
+
+
+def init_database() -> bool:
+    """Initialise SQLite tables (safe to call on existing DB)."""
+    try:
+        from core.database import init_db
+        init_db()
+        print("  [OK] Database initialised")
+        return True
+    except Exception as e:
+        print(f"  [!!] Database init failed: {e}")
+        return False
+
+
+def check_specialized_models() -> None:
+    """Report which optional specialized models are available."""
+    from config import (YOLO_HELMET_MODEL, YOLO_SEATBELT_MODEL,
+                        YOLO_PLATE_MODEL, MODELS_DIR)
+    specs = {
+        "Helmet":        YOLO_HELMET_MODEL,
+        "Seatbelt":      YOLO_SEATBELT_MODEL,
+        "License Plate": YOLO_PLATE_MODEL,
+    }
+    for name, path in specs.items():
+        if Path(path).exists():
+            size = Path(path).stat().st_size / 1_048_576
+            print(f"  [OK] {name} model: {Path(path).name}  ({size:.1f} MB)")
+        else:
+            print(f"  [--] {name} model: not found — using heuristic fallback")
+
+
+def run() -> None:
+    """Run the full startup sequence."""
+    print("\n" + "=" * 52)
+    print("  TrafficAI — Startup Initialisation")
+    print("=" * 52)
+
+    ensure_dirs()
+    ok_db    = init_database()
+    ok_yolo  = download_yolo()
+    ok_ocr   = warm_easyocr()
+    check_specialized_models()
+
+    print("=" * 52)
+    if ok_yolo and ok_ocr and ok_db:
+        print("  All systems ready.  Starting dashboard ...\n")
+    else:
+        print("  WARNING: Some components failed to initialise.")
+        print("  The app will start but some features may be limited.\n")
+
+
+# Allow running directly: python startup.py
+if __name__ == "__main__":
+    run()

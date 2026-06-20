@@ -1,0 +1,46 @@
+# ============================================================
+# Traffic Violation Detection System - Dependencies
+# Python 3.10+ required
+# ============================================================
+
+# --- Core Computer Vision ---
+ultralytics==8.3.0          # YOLOv8 object detection (auto-installs torch)
+opencv-python==4.10.0.84    # Image processing
+Pillow==10.4.0              # Image I/O
+
+# --- OCR for License Plates ---
+easyocr==1.7.2              # Free OCR, works well on Indian plates
+
+# --- Backend API ---
+fastapi==0.115.0            # REST API framework
+uvicorn[standard]==0.30.0   # ASGI server to run FastAPI
+python-multipart==0.0.12    # Required for file uploads in FastAPI
+aiofiles==24.1.0            # Async file operations
+
+# --- Frontend Dashboard ---
+streamlit==1.39.0           # Web dashboard, zero frontend code needed
+
+# --- Data Processing ---
+numpy==1.26.4               # Numerical operations
+pandas==2.2.3               # Tabular data, CSV reports
+scikit-learn==1.5.2         # Metrics: precision, recall, F1, mAP
+
+# --- Visualization ---
+matplotlib==3.9.2           # Charts and plots
+plotly==5.24.1              # Interactive charts in Streamlit
+
+# --- Database ---
+sqlalchemy==2.0.36          # SQLite ORM (stores violation records)
+
+# --- Schema & Config ---
+pydantic==2.9.2             # Data validation
+pydantic-settings==2.6.0    # Config from .env files
+python-dotenv==1.0.1        # Load .env environment variables
+
+# --- Utilities ---
+requests==2.32.3            # HTTP requests (download models/datasets)
+tqdm==4.66.6                # Progress bars
+pytest==8.3.3               # Testing framework
+
+# --- Dataset Management ---
+roboflow==1.1.48            # Download annotated datasets from Roboflow
