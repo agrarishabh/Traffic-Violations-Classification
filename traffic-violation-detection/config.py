@@ -7,10 +7,8 @@ To change any setting, edit this file — nowhere else.
 """
 
 import os
-from pathlib import Path"""
-
-import os
 from pathlib import Path
+
 
 # ============================================================
 # ROOT PATHS
