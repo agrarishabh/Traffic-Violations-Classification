@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "traffic-violation-detection/Dockerfile"
 
 [deploy]
-startCommand = "python startup.py & exec streamlit run dashboard/app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.maxUploadSize=10 --server.enableCORS=false --server.enableXsrfProtection=false"
+startCommand = "python startup.py && exec streamlit run dashboard/app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.maxUploadSize=10 --server.enableCORS=false --server.enableXsrfProtection=false"
 healthcheckPath = "/_stcore/health"
 healthcheckTimeout = 600
 restartPolicyType = "ON_FAILURE"
