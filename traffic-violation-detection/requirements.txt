@@ -5,7 +5,7 @@
 
 # --- Core Computer Vision ---
 ultralytics==8.3.0          # YOLOv8 object detection (auto-installs torch)
-opencv-python==4.10.0.84    # Image processing
+opencv-python-headless==4.10.0.84    # Headless — no GUI/display libs needed on server
 Pillow==10.4.0              # Image I/O
 
 # --- OCR for License Plates ---
