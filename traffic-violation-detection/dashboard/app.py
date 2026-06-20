@@ -18,10 +18,13 @@ _mc_orig = metric_card
 metric_card = lambda v, l, **kw: _mc_orig(v, l)
 inject_css()
 
-# Run startup initialisation once per session
+# Lightweight DB init only — heavy model loading happens lazily on first analysis
 if "startup_done" not in st.session_state:
-    import startup
-    startup.run()
+    try:
+        from core.database import init_db
+        init_db()
+    except Exception:
+        pass
     st.session_state["startup_done"] = True
 
 @st.cache_data(ttl=30)

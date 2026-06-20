@@ -34,24 +34,26 @@ def ensure_dirs() -> None:
 def download_yolo() -> bool:
     """
     Download YOLOv8s base weights if not already cached.
-    Ultralytics stores the cache in ~/.ultralytics/ automatically.
+    Downloads the file only — does NOT load into PyTorch memory at startup.
     """
     try:
-        from ultralytics import YOLO
-        print("  [..] Checking YOLOv8s weights ...")
-        model = YOLO("yolov8s.pt")   # downloads if missing (~22 MB)
-        print(f"  [OK] YOLOv8s ready  ({len(model.names)} COCO classes)")
+        # Use ultralytics' own download utility — finds/downloads the file,
+        # returns the local path without instantiating a full YOLO model.
+        from ultralytics.utils.downloads import attempt_download_asset
+        path = attempt_download_asset("yolov8s.pt")
+        print(f"  [OK] YOLOv8s ready  ({path})")
         return True
-    except Exception as e:
-        print(f"  [!!] YOLOv8 download failed: {e}")
-        print("       Falling back to yolov8n.pt ...")
+    except Exception:
+        # Fallback: instantiate briefly just to trigger download, then free memory
         try:
-            from ultralytics import YOLO as YOLO2
-            YOLO2("yolov8n.pt")
-            print("  [OK] YOLOv8n ready (fallback)")
+            from ultralytics import YOLO
+            print("  [..] Checking YOLOv8s weights ...")
+            model = YOLO("yolov8s.pt")
+            del model          # free PyTorch memory immediately
+            print("  [OK] YOLOv8s ready")
             return True
-        except Exception as e2:
-            print(f"  [!!] Both YOLOv8 downloads failed: {e2}")
+        except Exception as e:
+            print(f"  [!!] YOLOv8 download failed: {e}")
             return False
 
 
