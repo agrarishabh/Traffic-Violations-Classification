@@ -61,7 +61,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # ── Entrypoint ────────────────────────────────────────────────
 # Use $PORT from Railway/Render env, fallback to 8501 for local
-CMD ["sh", "-c", "python startup.py && streamlit run dashboard/app.py \
+CMD ["sh", "-c", "python startup.py && exec streamlit run dashboard/app.py \
      --server.port=${PORT:-8501} \
      --server.address=0.0.0.0 \
      --server.headless=true \
