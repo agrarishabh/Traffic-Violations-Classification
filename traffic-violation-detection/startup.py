@@ -57,19 +57,11 @@ def download_yolo() -> bool:
 
 def warm_easyocr() -> bool:
     """
-    Trigger EasyOCR model download on first run.
-    Models are cached in ~/.EasyOCR/ (~100 MB total).
+    Skip EasyOCR warm-up at startup — it downloads 100 MB and causes
+    cloud health-check timeouts. EasyOCR loads lazily on first analysis.
     """
-    try:
-        print("  [..] Checking EasyOCR models (~100 MB first run) ...")
-        import easyocr
-        reader = easyocr.Reader(['en'], gpu=False, verbose=False)
-        del reader
-        print("  [OK] EasyOCR ready")
-        return True
-    except Exception as e:
-        print(f"  [!!] EasyOCR init failed: {e}")
-        return False
+    print("  [--] EasyOCR: will load on first use (lazy)")
+    return True
 
 
 def init_database() -> bool:

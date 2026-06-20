@@ -49,11 +49,8 @@ ENV PYTHONUNBUFFERED=1 \
     # Tells the app it is running in cloud mode
     TRAFFICAI_CLOUD=1
 
-# ── Pre-download YOLOv8 + EasyOCR models at build time ───────
-# This bakes the models into the image so startup is instant.
-# Remove these lines if you prefer smaller image + runtime download.
-RUN python -c "from ultralytics import YOLO; YOLO('yolov8s.pt')" || true
-RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False, verbose=False)" || true
+# ── Models download at runtime (not build time) ───────────────
+# Keeping build fast — YOLOv8 and EasyOCR download on first startup
 
 # ── Expose Streamlit port ─────────────────────────────────────
 EXPOSE 8501
@@ -63,9 +60,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
 # ── Entrypoint ────────────────────────────────────────────────
-# startup.py runs init checks, then launches the dashboard
+# Use $PORT from Railway/Render env, fallback to 8501 for local
 CMD ["sh", "-c", "python startup.py && streamlit run dashboard/app.py \
-     --server.port=8501 \
+     --server.port=${PORT:-8501} \
      --server.address=0.0.0.0 \
      --server.headless=true \
-     --server.maxUploadSize=10"]
+     --server.maxUploadSize=10 \
+     --server.enableCORS=false \
+     --server.enableXsrfProtection=false"]
