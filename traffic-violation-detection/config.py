@@ -19,7 +19,9 @@ BASE_DIR = Path(__file__).resolve().parent
 # Cloud environments (Railway, Render, HuggingFace, Streamlit Cloud)
 # often have read-only filesystems except /tmp and home directory.
 # TRAFFICAI_CLOUD=1 tells us to redirect writable paths to /tmp.
-_CLOUD = os.environ.get("TRAFFICAI_CLOUD", "0") == "1"
+# Hugging Face Spaces always sets SPACE_ID, so we auto-detect it too.
+_CLOUD = (os.environ.get("TRAFFICAI_CLOUD", "0") == "1"
+          or bool(os.environ.get("SPACE_ID")))
 _WRITE_ROOT = Path("/tmp/trafficai") if _CLOUD else BASE_DIR
 
 DATA_DIR        = BASE_DIR / "data"

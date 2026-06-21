@@ -1,3 +1,14 @@
+---
+title: Traffic Violation Detection
+emoji: 🚦
+colorFrom: gray
+colorTo: green
+sdk: streamlit
+sdk_version: 1.39.0
+app_file: dashboard/app.py
+pinned: false
+---
+
 # Traffic Violation Detection System
 ### Flipkart Gridlock Hackathon — AI-Based Traffic Monitoring
 
