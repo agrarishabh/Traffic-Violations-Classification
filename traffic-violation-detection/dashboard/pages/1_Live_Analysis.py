@@ -23,10 +23,28 @@ def load_pipeline():
     gn = EvidenceGenerator(save_to_db=True)
     return vd, oc, gn
 
+def _downscale(img, max_side=1280):
+    """Cap the longest side to limit memory use during detection + OCR.
+
+    Large uploads (e.g. 12 MP phone photos) cause EasyOCR's text detector
+    to allocate huge intermediate tensors on CPU, which can OOM-kill the
+    container. Downscaling keeps peak memory bounded with negligible
+    accuracy loss for traffic-scene detection.
+    """
+    h, w = img.shape[:2]
+    longest = max(h, w)
+    if longest <= max_side:
+        return img
+    scale = max_side / float(longest)
+    new_w, new_h = int(w * scale), int(h * scale)
+    return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
 def run(image_bytes, fname):
+    import gc
     arr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None: return None,None,None,None
+    img = _downscale(img, max_side=1280)
     vd,oc,gn = load_pipeline()
     vr  = vd.detect_all(img)
     dr  = vr.detection_result
@@ -37,6 +55,7 @@ def run(image_bytes, fname):
         if not v.plate_number and pno: v.plate_number = pno
     pkg = gn.generate(image=img, image_path=fname,
                       detection_result=dr, violation_result=vr, plate_results=pl)
+    gc.collect()
     return img, vr, pl, pkg
 
 # ════════════════════════════════════════════════════════════

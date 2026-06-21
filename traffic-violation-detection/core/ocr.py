@@ -577,6 +577,7 @@ class LicensePlateOCR:
                     min_size=10,
                     text_threshold=0.4,
                     low_text=0.3,
+                    canvas_size=1280,   # cap detector canvas — bounds CPU memory
                 )
             except Exception:
                 continue
