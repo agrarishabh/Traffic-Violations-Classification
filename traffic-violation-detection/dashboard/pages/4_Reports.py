@@ -8,7 +8,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Reports  TrafficAI", page_icon="◈", layout="wide")
 from dashboard.theme import (inject_css, page_header, metric_row,
                                metric_card, section_title, divider)
 inject_css()

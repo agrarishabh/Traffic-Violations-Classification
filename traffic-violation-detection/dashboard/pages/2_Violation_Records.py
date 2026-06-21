@@ -7,7 +7,6 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import streamlit as st, pandas as pd
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Records  TrafficAI", page_icon="◈", layout="wide")
 from dashboard.theme import (inject_css, page_header, metric_row,
                                metric_card, section_title, divider, conf_bar)
 inject_css()

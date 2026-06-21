@@ -8,7 +8,6 @@ import streamlit as st, pandas as pd
 import plotly.express as px, plotly.graph_objects as go
 from datetime import datetime
 
-st.set_page_config(page_title="Analytics  TrafficAI", page_icon="◈", layout="wide")
 from dashboard.theme import (inject_css, page_header, metric_row,
                                metric_card, section_title, divider)
 inject_css()

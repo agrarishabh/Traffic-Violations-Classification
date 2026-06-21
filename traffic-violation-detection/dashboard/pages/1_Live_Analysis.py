@@ -8,9 +8,6 @@ import streamlit as st
 import pandas as pd
 from PIL import Image
 
-st.set_page_config(page_title="Live Analysis  TrafficAI",
-                   page_icon="◈", layout="wide")
-
 from dashboard.theme import (inject_css, page_header, metric_row, metric_card,
                                section_title, divider, violation_card,
                                no_violation, conf_bar, live_badge)
