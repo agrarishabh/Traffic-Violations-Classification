@@ -61,7 +61,7 @@ EXPOSE 8501
 
 # ── Entrypoint ────────────────────────────────────────────────
 # Use $PORT from Railway/Render env, fallback to 8501 for local
-CMD ["sh", "-c", "python startup.py && exec streamlit run dashboard/app.py \
+CMD ["sh", "-c", "python startup.py & exec streamlit run dashboard/app.py \
      --server.port=${PORT:-8501} \
      --server.address=0.0.0.0 \
      --server.headless=true \
