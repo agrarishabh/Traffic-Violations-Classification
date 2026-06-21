@@ -27,7 +27,7 @@ if "startup_done" not in st.session_state:
 
 # ── Page registry (paths relative to this entrypoint) ─────────
 pages = [
-    st.Page("home.py",                      title="Home",              icon="◈", default=True),
+    st.Page("home.py",                      title="Home",              icon="🏠", default=True),
     st.Page("pages/1_Live_Analysis.py",     title="Live Analysis",     icon="📹"),
     st.Page("pages/2_Violation_Records.py", title="Violation Records", icon="📋"),
     st.Page("pages/3_Analytics.py",         title="Analytics",         icon="📊"),
