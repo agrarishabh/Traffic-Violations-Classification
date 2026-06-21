@@ -283,6 +283,28 @@ def delete_all_violations(db: Session) -> int:
     return count
 
 
+def delete_violation(db: Session, violation_id: int) -> bool:
+    """
+    Delete a single violation record by ID.
+    Also removes the annotated evidence image file if it exists.
+    Returns True if a record was found and deleted, False otherwise.
+    """
+    record = db.query(ViolationRecord).filter(ViolationRecord.id == violation_id).first()
+    if not record:
+        return False
+    # Remove annotated image file from disk if present
+    if record.annotated_path:
+        try:
+            ann = Path(record.annotated_path)
+            if ann.exists():
+                ann.unlink()
+        except Exception:
+            pass
+    db.delete(record)
+    db.commit()
+    return True
+
+
 # ══════════════════════════════════════════════════════════════
 # STANDALONE TEST  (run: python core/database.py)
 # ══════════════════════════════════════════════════════════════

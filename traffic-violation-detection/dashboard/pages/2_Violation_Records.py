@@ -150,3 +150,25 @@ if match:
                 <div style="font-size:0.78rem;margin-top:6px">No image found</div>
             </div>""", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Delete this record ────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("⚠ Delete this record", expanded=False):
+        st.markdown(
+            f"<div style='color:#616161;font-size:0.82rem;margin-bottom:10px'>"
+            f"This will permanently remove record <b style='color:#DBE2DC'>ID {match['id']}</b> "
+            f"({match['display_name']}) and its evidence image from storage. "
+            f"This cannot be undone.</div>",
+            unsafe_allow_html=True)
+        if st.button("Delete Record", type="primary", use_container_width=True):
+            from core.database import SessionLocal, init_db, delete_violation
+            init_db()
+            db = SessionLocal()
+            deleted = delete_violation(db, match["id"])
+            db.close()
+            if deleted:
+                st.cache_data.clear()
+                st.success(f"Record {match['id']} deleted.")
+                st.rerun()
+            else:
+                st.error("Record not found — it may have already been deleted.")
