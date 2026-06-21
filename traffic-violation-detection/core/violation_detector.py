@@ -852,15 +852,18 @@ class ViolationDetector:
         """
         Detect vehicles illegally parked on kerbs, pavements, or no-parking zones.
 
-        Simplified heuristic for static images:
-          1. Vehicles that are stationary are assumed to be VERY close to the
-             bottom edge of the frame (near the camera / roadside)
-          2. Their bounding box is also WIDE relative to their height
-             (parked vehicles appear wide and low in the frame)
-          3. They have no persons overlapping them (unoccupied)
+        Score-based heuristic — an unoccupied vehicle is flagged as illegally
+        parked when it scores >= 2 out of 4 positional signals:
 
-        Real deployment would use zone polygons from map data.
-        This heuristic flags common roadside parking patterns.
+          1. near_bottom  — vehicle sits in the lower 40% of the frame
+                            (roadside / foreground position)
+          2. near_edge    — vehicle bbox touches within 20% of either side edge
+                            (parked at kerb, not moving through centre)
+          3. wide_aspect  — width > 1.5× height (broadside-on parked stance)
+          4. low_centre   — vertical centre is in the lower 55% of the frame
+
+        The unoccupied check (no detected person inside the vehicle) is a
+        pre-condition — occupied vehicles are never flagged as parked.
         """
         violations = []
         if not det_result.vehicles:
@@ -871,35 +874,47 @@ class ViolationDetector:
         for vehicle in det_result.vehicles:
             vx1, vy1, vx2, vy2 = vehicle.bbox
             vw = vx2 - vx1
-            vh = vy2 - vy1
+            vh = max(1, vy2 - vy1)
+            vcx = (vx1 + vx2) / 2
+            vcy = (vy1 + vy2) / 2
 
-            if vh == 0:
-                continue
-
-            # Heuristic conditions for illegal parking:
-            # a) Vehicle occupies bottom 25% of image (parked at roadside)
-            near_bottom = vy2 > h * 0.75
-
-            # b) Vehicle is wide relative to height (parked aspect ratio)
-            wide_aspect = (vw / vh) > 2.0
-
-            # c) No person inside it (unoccupied = parked)
+            # Pre-condition: no detected person inside (unoccupied vehicle)
             riders = self.vehicle_detector.get_persons_on_vehicle(
                 vehicle, det_result.persons, containment_threshold=0.20)
-            unoccupied = len(riders) == 0
+            if len(riders) > 0:
+                continue   # occupied — skip
 
-            # d) Vehicle is near the image edge (parked on side)
-            near_edge = vx1 < w * 0.10 or vx2 > w * 0.90
+            # ── Four positional signals ───────────────────────
+            # 1. Vehicle bottom is in lower 40% of frame
+            near_bottom = vy2 > h * 0.60
 
-            if near_bottom and wide_aspect and unoccupied and near_edge:
-                conf = 0.62
+            # 2. Vehicle touches within 20% of either horizontal edge
+            near_edge = vx1 < w * 0.20 or vx2 > w * 0.80
+
+            # 3. Width > 1.5× height (broadside-on parked stance)
+            wide_aspect = (vw / vh) > 1.5
+
+            # 4. Vertical centre is in lower 55% of frame
+            low_centre = vcy > h * 0.45
+
+            score = sum([near_bottom, near_edge, wide_aspect, low_centre])
+
+            if score >= 2:
+                # Confidence scales with how many signals fired
+                conf = 0.52 + (score - 2) * 0.08   # 0.52 / 0.60 / 0.68
+                reasons = []
+                if near_bottom:  reasons.append("roadside position")
+                if near_edge:    reasons.append("near kerb edge")
+                if wide_aspect:  reasons.append("parked orientation")
+                if low_centre:   reasons.append("foreground placement")
+
                 violations.append(self._make_violation(
                     vtype       = ViolationType.ILLEGAL_PARKING,
-                    confidence  = conf,
+                    confidence  = round(conf, 2),
                     bbox        = vehicle.bbox,
                     vehicle_bbox= vehicle.bbox,
-                    description = (f"{vehicle.class_name} appears parked in "
-                                   f"restricted zone (near edge, unoccupied)"),
+                    description = (f"Unoccupied {vehicle.class_name} — "
+                                   + ", ".join(reasons)),
                 ))
         return violations
 
