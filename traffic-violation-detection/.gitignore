@@ -72,3 +72,5 @@ ultralytics/
 # ── Logs ─────────────────────────────────────────────────────
 *.log
 logs/
+
+TrafficAI_Pitch_Deck.pdf
